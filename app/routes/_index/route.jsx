@@ -19,9 +19,9 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>Zenloop Customer Experience Surveys</h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          Boost your customer satisfaction by collecting valuable feedback with Zenloop's powerful NPS and customer experience platform.
         </p>
         {showForm && (
           <Form className={styles.form} method="post" action="/auth/login">
@@ -37,16 +37,13 @@ export default function App() {
         )}
         <ul className={styles.list}>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Post-Purchase Surveys</strong>. Automatically collect customer feedback right after purchase to understand their shopping experience and measure satisfaction.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>NPS Tracking</strong>. Track and analyze your Net Promoter Score to identify promoters and areas for improvement in your customer experience.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Seamless Integration</strong>. Easy setup with your Shopify store - just connect your Zenloop account and start gathering valuable customer insights.
           </li>
         </ul>
       </div>
