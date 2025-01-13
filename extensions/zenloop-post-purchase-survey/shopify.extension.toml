@@ -1,0 +1,14 @@
+type = "checkout_post_purchase"
+name = "zenloop-post-purchase-survey"
+
+[extension_points]
+post_purchase = "index.jsx"
+
+[capabilities]
+network_access = true
+block_progress = true
+
+[[metafields]]
+namespace = "zenloop"
+key = "settings"
+type = "json"

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: zenloop-surveys
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: SHOPIFY_API_KEY
+        value: 64d23ddc4928053e144496715948bbea
+      - key: SHOPIFY_APP_URL
+        value: https://zenloop-survey-plugin.onrender.com
+      - key: HOST
+        value: https://zenloop-survey-plugin.onrender.com
+      - key: SCOPES
+        value: write_products,write_checkout_extensions_apis 
