@@ -47,6 +47,21 @@ export default function App() {
           </li>
         </ul>
       </div>
+      <footer className={styles.footer}>
+        <div className={styles["footer-content"]}>
+          <div className={styles.copyright}>
+            © {new Date().getFullYear()} SaaS.group zenloop GmbH
+          </div>
+          <div className={styles["legal-links"]}>
+            <a href="https://www.zenloop.com/en/legal/terms-of-service/" target="_blank" rel="noopener noreferrer">
+              Terms and Conditions
+            </a>
+            <a href="https://www.zenloop.com/en/legal/privacy/" target="_blank" rel="noopener noreferrer">
+              Privacy Policy
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
