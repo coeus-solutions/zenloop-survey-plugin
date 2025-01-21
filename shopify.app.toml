@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "64d23ddc4928053e144496715948bbea"
-application_url = "https://zenloop-survey-plugin.onrender.com"
+application_url = "https://zenloop-survey-plugin-xn48.onrender.com"
 embedded = true
 name = "Zenloop-Surveys"
 handle = "zenloop-surveys-1"
@@ -23,13 +23,13 @@ api_version = "2025-01"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+scopes = "write_products,write_checkout_extensions_apis"
 
 [auth]
 redirect_urls = [
-  "https://zenloop-survey-plugin.onrender.com/auth/callback",
-  "https://zenloop-survey-plugin.onrender.com/auth/shopify/callback",
-  "https://zenloop-survey-plugin.onrender.com/api/auth/callback"
+  "https://zenloop-survey-plugin-xn48.onrender.com/auth/callback",
+  "https://zenloop-survey-plugin-xn48.onrender.com/auth/shopify/callback",
+  "https://zenloop-survey-plugin-xn48.onrender.com/api/auth/callback"
 ]
 
 [pos]
