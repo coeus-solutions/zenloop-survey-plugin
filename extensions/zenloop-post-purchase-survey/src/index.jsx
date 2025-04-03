@@ -38,11 +38,13 @@ extend("Checkout::PostPurchase::ShouldRender", async ({ storage, inputData }) =>
     try {
       settings = JSON.parse(zenloopSettings.value);
     } catch (parseError) {
+      console.error("Failed to parse settings:", parseError);
       return { render: false };
     }
 
     const { orgId, surveyId } = settings;
     if (!orgId || !surveyId) {
+      console.error("Missing required settings");
       return { render: false };
     }
 
@@ -54,12 +56,8 @@ extend("Checkout::PostPurchase::ShouldRender", async ({ storage, inputData }) =>
 
     return { render: true };
   } catch (error) {
-    await storage.update({
-      orgId: "4145",
-      surveyId: "399",
-      shop: shop?.domain
-    });
-    return { render: true };
+    console.error("Error in ShouldRender:", error);
+    return { render: false };
   }
 });
 
@@ -67,7 +65,8 @@ extend("Checkout::PostPurchase::ShouldRender", async ({ storage, inputData }) =>
 function PostPurchaseSurvey() {
   const { storage, inputData, done } = useExtensionInput();
   const [shouldRender, setShouldRender] = useState(false);
-  const [settings, setSettings] = useState({ orgId: "", surveyId: "" });
+  const [settings, setSettings] = useState(null);
+  const [error, setError] = useState(null);
   const shop = inputData?.shop;
   const initialPurchase = inputData?.initialPurchase;
 
@@ -102,16 +101,12 @@ function PostPurchaseSurvey() {
           setSettings({ orgId, surveyId });
           setShouldRender(true);
         } catch (parseError) {
+          console.error("Failed to parse settings:", parseError);
           done();
         }
       } catch (error) {
-        // Use default values if metafield read fails
-        await storage.update({
-          orgId: "4145",
-          surveyId: "399",
-          shop: shop?.domain
-        });
-        setSettings({ orgId: "4145", surveyId: "399" });
+        console.error("Error checking settings:", error);
+        setError("Unable to load survey. Please continue to order status.");
         setShouldRender(true);
       }
     }
@@ -121,6 +116,27 @@ function PostPurchaseSurvey() {
 
   if (!shouldRender) {
     return null;
+  }
+
+  if (error || !settings) {
+    return (
+      <View padding="base">
+        <Layout maxInlineSize={0.95}>
+          <BlockStack spacing="tight" alignment="center">
+            <TextContainer alignment="center">
+              <TextBlock appearance="critical">{error}</TextBlock>
+            </TextContainer>
+            <Button
+              kind="secondary"
+              onPress={() => done()}
+              inlineSize="fill"
+            >
+              Continue to Order Status
+            </Button>
+          </BlockStack>
+        </Layout>
+      </View>
+    );
   }
   
   const baseUrl = "https://zenresponses.zenloop.com/";
