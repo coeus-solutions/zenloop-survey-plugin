@@ -9,22 +9,7 @@ import { authenticate } from "../shopify.server";
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-
-  // TODO: Re-enable billing after testing
-  // const { billing } = await authenticate.admin(request);
-  // await billing.require({
-  //   recurring: {
-  //     interval: "EVERY_30_DAYS",
-  //     chargeName: "Zenloop Surveys Subscription",
-  //     amount: 9.99,
-  //     currencyCode: "USD",
-  //     trialDays: 14,
-  //   },
-  //   replacement: true,
-  //   test: process.env.NODE_ENV === "development",
-  // });
-
+  await authenticate.admin(request);
   return json({ apiKey: process.env.SHOPIFY_API_KEY || "" });
 };
 
