@@ -12,22 +12,56 @@ import {
   PageActions,
   Banner,
 } from "@shopify/polaris";
+import { Redirect } from "@shopify/app-bridge-react";
 import { useState, useEffect } from "react";
 
 export const loader = async ({ request }) => {
+  // Replace with the "app_handle" from your shopify.app.toml file
+  const appHandle = "zenloop-surveys-1";
+
   try {
     await new Promise(resolve => setTimeout(resolve, 500));
-    const { admin } = await authenticate.admin(request);
+    
+    // Authenticate with Shopify credentials to handle server-side queries
+    const { admin, billing, session } = await authenticate.admin(request);
 
+    // Get URL parameters to check if user is returning from plan selection
     const url = new URL(request.url);
-    const shop = url.searchParams.get('shop');
+    const chargeId = url.searchParams.get('charge_id');
+    const planParam = url.searchParams.get('plan');
+    
+    // If user is returning from plan selection, they should have active payment now
+    if (chargeId || planParam) {
+      console.log("User returning from plan selection:", { chargeId, planParam });
+    }
+
+    // Check whether the store has an active subscription
+    const { hasActivePayment } = await billing.check();
+
+    // Extract the store handle from the shop domain
+    const shop = session.shop; // e.g., "cool-shop.myshopify.com"
+    const storeHandle = shop.replace('.myshopify.com', '');
+
+    // If there's no active subscription, return billing info for frontend redirect
+    if (!hasActivePayment) {    
+      return json({
+        needsBilling: true,
+        planSelectionUrl: `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`,
+        settings: {},
+        initialized: false
+      });
+    }
+
+    // ...Otherwise, continue loading the app as normal
+    const shopParam = url.searchParams.get('shop');
     const embedded = url.searchParams.get('embedded');
     const host = url.searchParams.get('host');
 
-    if (!shop || !embedded || !host) {
+    if (!shopParam || !embedded || !host) {
       return json({ 
         settings: {},
-        initialized: false
+        initialized: false,
+        needsBilling: false
       });
     }
 
@@ -195,6 +229,11 @@ export default function Index() {
   const [surveyId, setSurveyId] = useState("");
   const [orgIdError, setOrgIdError] = useState("");
   const [surveyIdError, setSurveyIdError] = useState("");
+
+  // Handle billing redirect using App Bridge Redirect component
+  if (loaderData?.needsBilling && loaderData?.planSelectionUrl) {
+    return <Redirect url={loaderData.planSelectionUrl} />;
+  }
 
   useEffect(() => {
     if (loaderData?.settings) {
