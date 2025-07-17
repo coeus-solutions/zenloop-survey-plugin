@@ -4,9 +4,19 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "@remix-run/react";
+import { json } from "@remix-run/node";
+
+export const loader = async () => {
+  return json({
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+  });
+};
 
 export default function App() {
+  const { apiKey } = useLoaderData();
+
   return (
     <html>
       <head>
@@ -19,7 +29,7 @@ export default function App() {
         />
         <script
           src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
-          data-api-key={process.env.SHOPIFY_API_KEY}
+          data-api-key={apiKey}
         />
         <Meta />
         <Links />
