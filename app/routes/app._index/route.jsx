@@ -20,7 +20,8 @@ export const loader = async ({ request }) => {
   const appHandle = "zenloop-surveys-1";
 
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Remove the artificial delay that might cause issues
+    // await new Promise(resolve => setTimeout(resolve, 500));
     
     // Authenticate with Shopify credentials to handle server-side queries
     const { admin, billing, session } = await authenticate.admin(request);
