@@ -10,9 +10,10 @@ export const links = () => [
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
 
-  // Let Shopify handle the installation flow including plan selection
-  // Don't redirect directly to /app - let managed pricing work
-  
+  if (url.searchParams.get("shop")) {
+    throw redirect(`/app?${url.searchParams.toString()}`);
+  }
+
   return { showForm: Boolean(login) };
 };
 

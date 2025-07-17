@@ -1,4 +1,4 @@
-import { json } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation, useSubmit } from "@remix-run/react";
 import { authenticate } from "../../shopify.server";
 import {
@@ -17,7 +17,30 @@ import { useState, useEffect } from "react";
 export const loader = async ({ request }) => {
   try {
     await new Promise(resolve => setTimeout(resolve, 500));
-    const { admin } = await authenticate.admin(request);
+    const { admin, billing } = await authenticate.admin(request);
+
+    // Check for active subscription first
+    const billingCheck = await billing.check({
+      plans: [
+        "install-for-free",
+        "starter", 
+        "growth",
+        "enterprise"
+      ],
+      isTest: true, // Set to false in production
+    });
+
+    // If no active subscription, redirect to plan selection page
+    if (!billingCheck.hasActivePayment) {
+      const url = new URL(request.url);
+      const shop = url.searchParams.get('shop') || billing.shop?.domain;
+      
+      if (shop) {
+        const shopHandle = shop.replace('.myshopify.com', '');
+        const planSelectionUrl = `https://admin.shopify.com/store/${shopHandle}/charges/zenloop-surveys-1/pricing_plans`;
+        throw redirect(planSelectionUrl);
+      }
+    }
 
     const url = new URL(request.url);
     const shop = url.searchParams.get('shop');
