@@ -12,10 +12,8 @@ services:
       - key: SHOPIFY_API_KEY
         value: 64d23ddc4928053e144496715948bbea
       - key: SHOPIFY_APP_URL
-        value: https://zenloop-survey-plugin-xn48.onrender.com
+        value: https://zenloop-survey-plugin-xn48.onrender.com/
       - key: HOST
-        value: https://zenloop-survey-plugin-xn48.onrender.com
+        value: https://zenloop-survey-plugin-xn48.onrender.com/
       - key: SCOPES
-        value: write_products,write_checkouts
-      - key: DATABASE_URL
-        value: file:./dev.sqlite 
+        value: write_products,write_checkout_extensions_apis 
