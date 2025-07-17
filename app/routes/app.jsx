@@ -9,7 +9,26 @@ import { authenticate } from "../shopify.server";
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  // Replace with the "app_handle" from your shopify.app.toml file
+  const appHandle = "zenloop-surveys-1";
+
+  // Authenticate with Shopify credentials to handle server-side queries
+  const { billing, redirect, session } = await authenticate.admin(request);
+
+  // Check whether the store has an active subscription
+  const { hasActivePayment } = await billing.check();
+
+  // Extract the store handle from the shop domain
+  const shop = session.shop; // e.g., "cool-shop.myshopify.com"
+  const storeHandle = shop.replace('.myshopify.com', '');
+
+  // If there's no active subscription, redirect to the plan selection page
+  if (!hasActivePayment) {
+    return redirect(`https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`, {
+      target: "_top", // required since the URL is outside the embedded app scope
+    });
+  }
+
   return json({ apiKey: process.env.SHOPIFY_API_KEY || "" });
 };
 
