@@ -111,6 +111,10 @@ function FeedbackDisplay({ settings }) {
         const aggregateData = await aggregateResponse.json();
         setAggregateData(aggregateData);
 
+        console.log("Aggregate API Response:", aggregateData);
+        console.log("Survey Definition:", aggregateData.surveyDefinition);
+        console.log("Elements:", aggregateData.surveyDefinition?.elements);
+
         // Fetch individual responses for the first question
         if (aggregateData.aggregatedData && aggregateData.aggregatedData.length > 0) {
           const firstQuestionId = aggregateData.aggregatedData[0].questionId;
@@ -185,6 +189,13 @@ function FeedbackDisplay({ settings }) {
         element => element.name === question.questionId
       );
 
+      console.log("Question debug:", {
+        questionId: question.questionId,
+        questionDefinition: questionDefinition,
+        choices: questionDefinition?.choices,
+        surveyDefinition: aggregateData.surveyDefinition
+      });
+
       return (
         <Card key={index}>
           <BlockStack gap="400">
@@ -203,7 +214,7 @@ function FeedbackDisplay({ settings }) {
             </InlineStack>
             
             {/* Show question choices if available */}
-            {questionDefinition?.choices && (
+            {questionDefinition?.choices && questionDefinition.choices.length > 0 ? (
               <BlockStack gap="300">
                 <Text as="h4" variant="headingSm">
                   Question Choices:
@@ -220,6 +231,15 @@ function FeedbackDisplay({ settings }) {
                     <Badge tone="info">other</Badge>
                   </InlineStack>
                 )}
+              </BlockStack>
+            ) : (
+              <BlockStack gap="300">
+                <Text as="h4" variant="headingSm">
+                  Question Choices:
+                </Text>
+                <Text variant="bodyMd" tone="subdued">
+                  No choices defined for this question type
+                </Text>
               </BlockStack>
             )}
             
