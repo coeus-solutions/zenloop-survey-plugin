@@ -208,12 +208,18 @@ function FeedbackDisplay({ settings }) {
                 <Text as="h4" variant="headingSm">
                   Question Choices:
                 </Text>
-                {questionDefinition.choices.map((choice, choiceIndex) => (
-                  <InlineStack key={choiceIndex} gap="300">
-                    <Text variant="bodyMd">• {choice.text || choice.value}</Text>
-                    <Badge tone="info">{choice.value}</Badge>
-                  </InlineStack>
-                ))}
+                {questionDefinition.choices.map((choice, choiceIndex) => {
+                  console.log("Choice:", choice);
+                  const choiceText = choice.text || choice.value || 'Unknown choice';
+                  const choiceValue = choice.value || 'no-value';
+                  
+                  return (
+                    <InlineStack key={choiceIndex} gap="300">
+                      <Text variant="bodyMd">• {choiceText}</Text>
+                      <Badge tone="info">{choiceValue}</Badge>
+                    </InlineStack>
+                  );
+                })}
                 {questionDefinition.showOtherItem && (
                   <InlineStack gap="300">
                     <Text variant="bodyMd">• Other (custom answer)</Text>
@@ -227,7 +233,7 @@ function FeedbackDisplay({ settings }) {
                   Question Choices:
                 </Text>
                 <Text variant="bodyMd" tone="subdued">
-                  No choices defined for this question type
+                  No choices found. Question definition: {JSON.stringify(questionDefinition)}
                 </Text>
               </BlockStack>
             )}
