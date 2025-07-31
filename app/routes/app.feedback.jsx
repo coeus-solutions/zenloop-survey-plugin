@@ -117,7 +117,7 @@ function FeedbackDisplay({ settings }) {
           const questionIdsParam = allQuestionIds.join(',');
           
           const responsesResponse = await fetch(
-            `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${questionIdsParam}&page=1&page_size=25`,
+            `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${questionIdsParam}`,
             {
               headers: {
                 'accept': 'application/json'
