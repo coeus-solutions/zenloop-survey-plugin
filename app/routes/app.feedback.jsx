@@ -111,12 +111,13 @@ function FeedbackDisplay({ settings }) {
         const aggregateData = await aggregateResponse.json();
         setAggregateData(aggregateData);
 
-        // Fetch individual responses for the first question
+        // Fetch individual responses for all questions
         if (aggregateData.aggregatedData && aggregateData.aggregatedData.length > 0) {
-          const firstQuestionId = aggregateData.aggregatedData[0].questionId;
+          const allQuestionIds = aggregateData.aggregatedData.map(q => q.questionId);
+          const questionIdsParam = allQuestionIds.join(',');
           
           const responsesResponse = await fetch(
-            `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${firstQuestionId}&page=1&page_size=25`,
+            `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${questionIdsParam}&page=1&page_size=25`,
             {
               headers: {
                 'accept': 'application/json'
@@ -218,22 +219,12 @@ function FeedbackDisplay({ settings }) {
                 {questionDefinition.showOtherItem && (
                   <InlineStack gap="300">
                     <Text variant="bodyMd">• Other (custom answer)</Text>
-                    <Badge tone="info">other</Badge>
                   </InlineStack>
                 )}
               </BlockStack>
-            ) : (
-              <BlockStack gap="300">
-                <Text as="h4" variant="headingSm">
-                  Question Choices:
-                </Text>
-                <Text variant="bodyMd" tone="subdued">
-                  No choices found. Question definition: {JSON.stringify(questionDefinition)}
-                </Text>
-              </BlockStack>
-            )}
+            ) : null}
             
-            {/* Show aggregated answers */}
+            {/* Show aggregated answers for choice questions */}
             {question.type === 'checkbox' && question.answers?.values && (
               <BlockStack gap="300">
                 <Text as="h4" variant="headingSm">
@@ -243,7 +234,7 @@ function FeedbackDisplay({ settings }) {
                   <InlineStack key={choice} align="space-between">
                     <Text variant="bodyMd">
                       {choice === 'other' ? 'Other' : 
-                       questionDefinition?.choices?.find(c => c.value === choice)?.text || choice}
+                       questionDefinition?.choices?.find(c => c === choice) || choice}
                     </Text>
                     <Badge tone="info">{count} responses</Badge>
                   </InlineStack>
@@ -263,12 +254,20 @@ function FeedbackDisplay({ settings }) {
                     headings={['Response ID', 'Date', 'Answer']}
                     rows={questionResponses.map((response) => {
                       const questionData = response.resultsData[question.questionId];
-                      const answerText = Array.isArray(questionData) 
-                        ? questionData.map(item => {
-                            const choice = questionDefinition?.choices?.find(c => c.value === item);
-                            return choice ? choice.text : item;
-                          }).join(', ')
-                        : questionData;
+                      let answerText;
+                      
+                      if (question.type === 'comment') {
+                        // For comment questions, show the written text
+                        answerText = questionData;
+                      } else if (Array.isArray(questionData)) {
+                        // For choice questions, show the choice text
+                        answerText = questionData.map(item => {
+                          const choice = questionDefinition?.choices?.find(c => c === item);
+                          return choice || item;
+                        }).join(', ');
+                      } else {
+                        answerText = questionData;
+                      }
                       
                       return [
                         response.id,
