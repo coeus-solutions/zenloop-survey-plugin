@@ -111,44 +111,50 @@ function FeedbackDisplay({ settings }) {
         const aggregateData = await aggregateResponse.json();
         setAggregateData(aggregateData);
 
-        // Fetch individual responses for all questions
+        // Fetch individual responses for each question separately
         if (aggregateData.aggregatedData && aggregateData.aggregatedData.length > 0) {
-          const allQuestionIds = aggregateData.aggregatedData.map(q => q.questionId);
-          const questionIdsParam = allQuestionIds.join(',');
-          
-          // Fetch all responses by making multiple API calls
           let allResponses = [];
-          let page = 1;
-          let hasMorePages = true;
           
-          while (hasMorePages) {
-            const responsesResponse = await fetch(
-              `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${questionIdsParam}&page=${page}&page_size=25`,
-              {
-                headers: {
-                  'accept': 'application/json'
-                }
-              }
-            );
-
-            if (!responsesResponse.ok) {
-              throw new Error(`Failed to fetch responses: ${responsesResponse.status}`);
-            }
-
-            const responsesData = await responsesResponse.json();
-            console.log(`Page ${page} response:`, responsesData);
+          // Fetch responses for each question separately
+          for (const question of aggregateData.aggregatedData) {
+            console.log(`Fetching responses for question: ${question.questionId}`);
             
-            if (responsesData.responses && responsesData.responses.length > 0) {
-              allResponses = [...allResponses, ...responsesData.responses];
-              page++;
+            let questionResponses = [];
+            let page = 1;
+            let hasMorePages = true;
+            
+            while (hasMorePages) {
+              const responsesResponse = await fetch(
+                `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${question.questionId}&page=${page}&page_size=100`,
+                {
+                  headers: {
+                    'accept': 'application/json'
+                  }
+                }
+              );
+
+              if (!responsesResponse.ok) {
+                throw new Error(`Failed to fetch responses for ${question.questionId}: ${responsesResponse.status}`);
+              }
+
+              const responsesData = await responsesResponse.json();
+              console.log(`Page ${page} for ${question.questionId}:`, responsesData);
               
-              // Check if there are more pages
-              if (responsesData.pagination && page > responsesData.pagination.total_pages) {
+              if (responsesData.responses && responsesData.responses.length > 0) {
+                questionResponses = [...questionResponses, ...responsesData.responses];
+                page++;
+                
+                // Check if there are more pages
+                if (responsesData.pagination && page > responsesData.pagination.total_pages) {
+                  hasMorePages = false;
+                }
+              } else {
                 hasMorePages = false;
               }
-            } else {
-              hasMorePages = false;
             }
+            
+            console.log(`Total responses for ${question.questionId}:`, questionResponses.length);
+            allResponses = [...allResponses, ...questionResponses];
           }
           
           console.log("Total responses fetched:", allResponses.length);
