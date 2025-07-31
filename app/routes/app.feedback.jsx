@@ -116,21 +116,43 @@ function FeedbackDisplay({ settings }) {
           const allQuestionIds = aggregateData.aggregatedData.map(q => q.questionId);
           const questionIdsParam = allQuestionIds.join(',');
           
-          const responsesResponse = await fetch(
-            `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${questionIdsParam}&page=1&page_size=99`,
-            {
-              headers: {
-                'accept': 'application/json'
+          // Fetch all responses by making multiple API calls
+          let allResponses = [];
+          let page = 1;
+          let hasMorePages = true;
+          
+          while (hasMorePages) {
+            const responsesResponse = await fetch(
+              `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${questionIdsParam}&page=${page}&page_size=25`,
+              {
+                headers: {
+                  'accept': 'application/json'
+                }
               }
+            );
+
+            if (!responsesResponse.ok) {
+              throw new Error(`Failed to fetch responses: ${responsesResponse.status}`);
             }
-          );
 
-          if (!responsesResponse.ok) {
-            throw new Error(`Failed to fetch responses: ${responsesResponse.status}`);
+            const responsesData = await responsesResponse.json();
+            console.log(`Page ${page} response:`, responsesData);
+            
+            if (responsesData.responses && responsesData.responses.length > 0) {
+              allResponses = [...allResponses, ...responsesData.responses];
+              page++;
+              
+              // Check if there are more pages
+              if (responsesData.pagination && page > responsesData.pagination.total_pages) {
+                hasMorePages = false;
+              }
+            } else {
+              hasMorePages = false;
+            }
           }
-
-          const responsesData = await responsesResponse.json();
-          setResponses(responsesData.responses || []);
+          
+          console.log("Total responses fetched:", allResponses.length);
+          setResponses(allResponses);
         }
 
       } catch (err) {
