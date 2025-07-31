@@ -180,6 +180,11 @@ function FeedbackDisplay({ settings }) {
       const isCollapsed = collapsedQuestions.has(question.questionId);
       const hasResponses = questionResponses.length > 0;
 
+      // Find the question definition from surveyDefinition
+      const questionDefinition = aggregateData.surveyDefinition?.elements?.find(
+        element => element.name === question.questionId
+      );
+
       return (
         <Card key={index}>
           <BlockStack gap="400">
@@ -197,12 +202,38 @@ function FeedbackDisplay({ settings }) {
               )}
             </InlineStack>
             
+            {/* Show question choices if available */}
+            {questionDefinition?.choices && (
+              <BlockStack gap="300">
+                <Text as="h4" variant="headingSm">
+                  Question Choices:
+                </Text>
+                {questionDefinition.choices.map((choice, choiceIndex) => (
+                  <InlineStack key={choiceIndex} gap="300">
+                    <Text variant="bodyMd">• {choice.text}</Text>
+                    <Badge tone="info">{choice.value}</Badge>
+                  </InlineStack>
+                ))}
+                {questionDefinition.showOtherItem && (
+                  <InlineStack gap="300">
+                    <Text variant="bodyMd">• Other (custom answer)</Text>
+                    <Badge tone="info">other</Badge>
+                  </InlineStack>
+                )}
+              </BlockStack>
+            )}
+            
+            {/* Show aggregated answers */}
             {question.type === 'checkbox' && question.answers?.values && (
               <BlockStack gap="300">
+                <Text as="h4" variant="headingSm">
+                  Response Summary:
+                </Text>
                 {Object.entries(question.answers.values).map(([choice, count]) => (
                   <InlineStack key={choice} align="space-between">
                     <Text variant="bodyMd">
-                      {choice === 'other' ? 'Other' : choice}
+                      {choice === 'other' ? 'Other' : 
+                       questionDefinition?.choices?.find(c => c.value === choice)?.text || choice}
                     </Text>
                     <Badge tone="info">{count} responses</Badge>
                   </InlineStack>
@@ -222,10 +253,17 @@ function FeedbackDisplay({ settings }) {
                     headings={['Response ID', 'Date', 'Answer']}
                     rows={questionResponses.map((response) => {
                       const questionData = response.resultsData[question.questionId];
+                      const answerText = Array.isArray(questionData) 
+                        ? questionData.map(item => {
+                            const choice = questionDefinition?.choices?.find(c => c.value === item);
+                            return choice ? choice.text : item;
+                          }).join(', ')
+                        : questionData;
+                      
                       return [
                         response.id,
                         formatDate(response.created),
-                        Array.isArray(questionData) ? questionData.join(', ') : questionData
+                        answerText
                       ];
                     })}
                   />
