@@ -111,10 +111,6 @@ function FeedbackDisplay({ settings }) {
         const aggregateData = await aggregateResponse.json();
         setAggregateData(aggregateData);
 
-        console.log("Aggregate API Response:", aggregateData);
-        console.log("Survey Definition:", aggregateData.surveyDefinition);
-        console.log("Elements:", aggregateData.surveyDefinition?.elements);
-
         // Fetch individual responses for the first question
         if (aggregateData.aggregatedData && aggregateData.aggregatedData.length > 0) {
           const firstQuestionId = aggregateData.aggregatedData[0].questionId;
@@ -189,13 +185,6 @@ function FeedbackDisplay({ settings }) {
         element => element.name === question.questionId
       );
 
-      console.log("Question debug:", {
-        questionId: question.questionId,
-        questionDefinition: questionDefinition,
-        choices: questionDefinition?.choices,
-        surveyDefinition: aggregateData.surveyDefinition
-      });
-
       return (
         <Card key={index}>
           <BlockStack gap="400">
@@ -221,7 +210,7 @@ function FeedbackDisplay({ settings }) {
                 </Text>
                 {questionDefinition.choices.map((choice, choiceIndex) => (
                   <InlineStack key={choiceIndex} gap="300">
-                    <Text variant="bodyMd">• {choice.text}</Text>
+                    <Text variant="bodyMd">• {choice.text || choice.value}</Text>
                     <Badge tone="info">{choice.value}</Badge>
                   </InlineStack>
                 ))}
