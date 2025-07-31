@@ -35,32 +35,32 @@ export const loader = async ({ request }) => {
 
     const response = await data.json();
     const metafieldValue = response?.data?.shop?.metafield?.value;
-    console.log("metafieldValue", metafieldValue);
-    if (false) {
+
+    if (!metafieldValue) {
       return json({ 
         error: "Please configure your Zenloop settings first",
         settings: null 
       });
     }
 
-    // let settings;
-    // try {
-    //   settings = JSON.parse(metafieldValue);
-    // } catch (error) {
-    //   return json({ 
-    //     error: "Invalid settings format",
-    //     settings: null 
-    //   });
-    // }
+    let settings;
+    try {
+      settings = JSON.parse(metafieldValue);
+    } catch (error) {
+      return json({ 
+        error: "Invalid settings format",
+        settings: null 
+      });
+    }
 
-    if (true) {
+    if (!settings.orgId || !settings.surveyId) {
       return json({ 
         error: "Organization ID and Survey ID are required",
         settings: null 
       });
     }
 
-    // return json({ settings });
+    return json({ settings });
   } catch (error) {
     return json({ 
       error: "Authentication failed. Please refresh the page.",
