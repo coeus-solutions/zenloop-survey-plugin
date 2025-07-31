@@ -209,14 +209,9 @@ function FeedbackDisplay({ settings }) {
                   Question Choices:
                 </Text>
                 {questionDefinition.choices.map((choice, choiceIndex) => {
-                  console.log("Choice:", choice);
-                  const choiceText = choice.text || choice.value || 'Unknown choice';
-                  const choiceValue = choice.value || 'no-value';
-                  
                   return (
                     <InlineStack key={choiceIndex} gap="300">
-                      <Text variant="bodyMd">• {choiceText}</Text>
-                      <Badge tone="info">{choiceValue}</Badge>
+                      <Text variant="bodyMd">• {choice}</Text>
                     </InlineStack>
                   );
                 })}
