@@ -112,12 +112,12 @@ function FeedbackDisplay({ settings }) {
         setAggregateData(aggregateData);
 
         // Fetch individual responses for each question separately
-        if (aggregateData.aggregatedData && aggregateData.aggregatedData.length > 0) {
+        if (aggregateData.surveyDefinition?.elements && aggregateData.surveyDefinition.elements.length > 0) {
           let allResponses = [];
           
           // Fetch responses for each question separately
-          for (const question of aggregateData.aggregatedData) {
-            console.log(`Fetching responses for question: ${question.questionId}`);
+          for (const question of aggregateData.surveyDefinition.elements) {
+            console.log(`Fetching responses for question: ${question.name}`);
             
             let questionResponses = [];
             let page = 1;
@@ -125,7 +125,7 @@ function FeedbackDisplay({ settings }) {
             
             while (hasMorePages) {
               const responsesResponse = await fetch(
-                `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${question.questionId}&page=${page}&page_size=100`,
+                `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${question.name}&page=${page}&page_size=100`,
                 {
                   headers: {
                     'accept': 'application/json'
@@ -134,11 +134,11 @@ function FeedbackDisplay({ settings }) {
               );
 
               if (!responsesResponse.ok) {
-                throw new Error(`Failed to fetch responses for ${question.questionId}: ${responsesResponse.status}`);
+                throw new Error(`Failed to fetch responses for ${question.name}: ${responsesResponse.status}`);
               }
 
               const responsesData = await responsesResponse.json();
-              console.log(`Page ${page} for ${question.questionId}:`, responsesData);
+              console.log(`Page ${page} for ${question.name}:`, responsesData);
               
               if (responsesData.responses && responsesData.responses.length > 0) {
                 questionResponses = [...questionResponses, ...responsesData.responses];
@@ -153,7 +153,7 @@ function FeedbackDisplay({ settings }) {
               }
             }
             
-            console.log(`Total responses for ${question.questionId}:`, questionResponses.length);
+            console.log(`Total responses for ${question.name}:`, questionResponses.length);
             allResponses = [...allResponses, ...questionResponses];
           }
           
@@ -184,34 +184,34 @@ function FeedbackDisplay({ settings }) {
   };
 
   const renderAggregateData = () => {
-    if (!aggregateData?.aggregatedData) {
+    if (!aggregateData?.surveyDefinition?.elements) {
       return (
         <Card>
           <BlockStack gap="400">
             <Text as="h3" variant="headingMd">
-              No Survey Data Found
+              No Survey Definition Found
             </Text>
             <Text variant="bodyMd">
-              No survey responses found for the configured Organization ID and Survey ID. 
-              Please verify your settings or check if your survey has received any responses.
+              No survey definition found for the configured Organization ID and Survey ID. 
+              Please verify your settings or check if your survey exists.
             </Text>
           </BlockStack>
         </Card>
       );
     }
 
-    return aggregateData.aggregatedData.map((question, index) => {
+    return aggregateData.surveyDefinition.elements.map((question, index) => {
       // Get responses for this specific question
       const questionResponses = responses.filter(response => 
-        response.resultsData && response.resultsData[question.questionId]
+        response.resultsData && response.resultsData[question.name]
       );
 
-      const isCollapsed = collapsedQuestions.has(question.questionId);
+      const isCollapsed = collapsedQuestions.has(question.name);
       const hasResponses = questionResponses.length > 0;
 
-      // Find the question definition from surveyDefinition
-      const questionDefinition = aggregateData.surveyDefinition?.elements?.find(
-        element => element.name === question.questionId
+      // Find aggregated data for this question if it exists
+      const aggregatedQuestion = aggregateData.aggregatedData?.find(
+        agg => agg.questionId === question.name
       );
 
       return (
@@ -223,7 +223,7 @@ function FeedbackDisplay({ settings }) {
               </Text>
               {hasResponses && (
                 <Button
-                  onClick={() => toggleQuestion(question.questionId)}
+                  onClick={() => toggleQuestion(question.name)}
                   variant="plain"
                 >
                   {isCollapsed ? "Show Responses" : "Hide Responses"}
@@ -231,38 +231,43 @@ function FeedbackDisplay({ settings }) {
               )}
             </InlineStack>
             
-            {/* Show question choices if available */}
-            {questionDefinition?.choices && questionDefinition.choices.length > 0 ? (
-              <BlockStack gap="300">
-                <Text as="h4" variant="headingSm">
-                  Question Choices:
-                </Text>
-                {questionDefinition.choices.map((choice, choiceIndex) => {
-                  return (
-                    <InlineStack key={choiceIndex} gap="300">
-                      <Text variant="bodyMd">• {choice}</Text>
-                    </InlineStack>
-                  );
-                })}
-                {questionDefinition.showOtherItem && (
-                  <InlineStack gap="300">
-                    <Text variant="bodyMd">• Other (custom answer)</Text>
-                  </InlineStack>
-                )}
-              </BlockStack>
-            ) : null}
+            {/* Show question type and details */}
+            <BlockStack gap="300">
+              <Text as="h4" variant="headingSm">
+                Question Type: {question.type}
+              </Text>
+              {question.type === 'rating' && (
+                <InlineStack gap="300">
+                  <Text variant="bodyMd">
+                    Rating Scale: {question.rateCount} points
+                  </Text>
+                  {question.minRateDescription && (
+                    <Text variant="bodyMd">
+                      Min: {question.minRateDescription}
+                    </Text>
+                  )}
+                  {question.maxRateDescription && (
+                    <Text variant="bodyMd">
+                      Max: {question.maxRateDescription}
+                    </Text>
+                  )}
+                </InlineStack>
+              )}
+              {question.isRequired && (
+                <Badge tone="critical">Required</Badge>
+              )}
+            </BlockStack>
             
-            {/* Show aggregated answers for choice questions */}
-            {question.type === 'checkbox' && question.answers?.values && (
+            {/* Show aggregated answers if available */}
+            {aggregatedQuestion && aggregatedQuestion.answers?.values && (
               <BlockStack gap="300">
                 <Text as="h4" variant="headingSm">
                   Response Summary:
                 </Text>
-                {Object.entries(question.answers.values).map(([choice, count]) => (
+                {Object.entries(aggregatedQuestion.answers.values).map(([choice, count]) => (
                   <InlineStack key={choice} align="space-between">
                     <Text variant="bodyMd">
-                      {choice === 'other' ? 'Other' : 
-                       questionDefinition?.choices?.find(c => c === choice) || choice}
+                      {choice === 'other' ? 'Other' : choice}
                     </Text>
                     <Badge tone="info">{count} responses</Badge>
                   </InlineStack>
@@ -275,24 +280,24 @@ function FeedbackDisplay({ settings }) {
               <Collapsible open={!isCollapsed}>
                 <BlockStack gap="300">
                   <Text as="h4" variant="headingSm">
-                    Individual Responses:
+                    Individual Responses ({questionResponses.length}):
                   </Text>
                   <DataTable
                     columnContentTypes={['text', 'text', 'text']}
                     headings={['Response ID', 'Date', 'Answer']}
                     rows={questionResponses.map((response) => {
-                      const questionData = response.resultsData[question.questionId];
+                      const questionData = response.resultsData[question.name];
                       let answerText;
                       
                       if (question.type === 'comment') {
                         // For comment questions, show the written text
                         answerText = questionData;
+                      } else if (question.type === 'rating') {
+                        // For rating questions, show the score
+                        answerText = `${questionData}/10`;
                       } else if (Array.isArray(questionData)) {
                         // For choice questions, show the choice text
-                        answerText = questionData.map(item => {
-                          const choice = questionDefinition?.choices?.find(c => c === item);
-                          return choice || item;
-                        }).join(', ');
+                        answerText = questionData.join(', ');
                       } else {
                         answerText = questionData;
                       }
@@ -306,6 +311,12 @@ function FeedbackDisplay({ settings }) {
                   />
                 </BlockStack>
               </Collapsible>
+            )}
+
+            {!hasResponses && (
+              <Text variant="bodyMd" tone="subdued">
+                No responses yet for this question.
+              </Text>
             )}
           </BlockStack>
         </Card>
