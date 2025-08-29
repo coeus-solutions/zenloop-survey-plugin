@@ -3,6 +3,7 @@ import { prisma } from "../db.server";
 
 export const loader = async ({ request }) => {
   await authenticate.public.checkout(request);
+  return new Response(null, { status: 204 });
 };
 
 export const action = async ({ request }) => {
@@ -80,6 +81,12 @@ async function fetchMetafields(shopDomain, accessToken) {
       },
     })
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Shopify API error:", response.status, errorText);
+    return { errors: [{ message: `HTTP error ${response.status}` }] };
+  }
 
   return response.json();
 }

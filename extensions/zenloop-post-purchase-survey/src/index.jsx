@@ -21,8 +21,8 @@ import {
 
 const SURVEY_BASE_URL = "https://zenresponses.zenloop.com/";
 
-// Replace with production URL when deploying the app
-const APP_URL = "https://pas-offline-mile-juice.trycloudflare.com";
+// Must be production URL when deploying the app
+const APP_URL = "https://zenloop-survey-plugin-xn48.onrender.com";
 
 extend("Checkout::PostPurchase::ShouldRender", shouldRender);
 render("Checkout::PostPurchase::Render", PostPurchaseSurvey);
