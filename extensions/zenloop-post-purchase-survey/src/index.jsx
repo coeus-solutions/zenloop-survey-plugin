@@ -1,7 +1,8 @@
 /**
  * Extend Shopify Checkout with a custom Post Purchase user experience.
  */
-import React, { useEffect, useState } from 'react';
+
+import React from 'react';
 
 import {
   extend,
@@ -16,142 +17,46 @@ import {
   Link,
   Image,
   Separator,
-  useExtensionInput,
 } from "@shopify/post-purchase-ui-extensions-react";
 
-/**
- * Entry point for the `ShouldRender` Extension Point.
- */
-extend("Checkout::PostPurchase::ShouldRender", async ({ storage, inputData }) => {
-  const shop = inputData?.shop;
+const SURVEY_BASE_URL = "https://zenresponses.zenloop.com/";
+
+// Must be production URL when deploying the app
+const APP_URL = "https://zenloop-survey-plugin-xn48.onrender.com";
+
+extend("Checkout::PostPurchase::ShouldRender", shouldRender);
+render("Checkout::PostPurchase::Render", PostPurchaseSurvey);
+
+async function shouldRender({ storage, inputData }) {
   try {
-    const shopMetafields = shop?.metafields || [];
-    const zenloopSettings = shopMetafields.find(
-      metafield => metafield.namespace === "zenloop" && metafield.key === "settings"
-    );
+    const response = await fetchZenloopSettings(inputData?.token || "");
 
-    if (!zenloopSettings?.value) {
+    if (!response.ok) {
+      console.error(`Zenloop API error: ${response.status} ${response.statusText}`);
       return { render: false };
     }
 
-    let settings = {};
-    try {
-      settings = JSON.parse(zenloopSettings.value);
-    } catch (parseError) {
-      console.error("Failed to parse settings:", parseError);
-      return { render: false };
-    }
+    const { data } = await response.json();
+    const orgId = data?.orgId;
+    const surveyId = data?.surveyId;
 
-    const { orgId, surveyId } = settings;
     if (!orgId || !surveyId) {
-      console.error("Missing required settings");
+      console.error("Invalid Zenloop settings:", data);
       return { render: false };
     }
 
-    await storage.update({
-      orgId,
-      surveyId,
-      shop: shop?.domain
-    });
-
+    await storage.update({ orgId, surveyId });
     return { render: true };
   } catch (error) {
-    console.error("Error in ShouldRender:", error);
+    console.error("Unexpected error in shouldRender:", error);
     return { render: false };
   }
-});
+}
 
 // Post-purchase survey component
-function PostPurchaseSurvey() {
-  const { storage, inputData, done } = useExtensionInput();
-  const [shouldRender, setShouldRender] = useState(false);
-  const [settings, setSettings] = useState(null);
-  const [error, setError] = useState(null);
-  const shop = inputData?.shop;
-  const initialPurchase = inputData?.initialPurchase;
-
-  useEffect(() => {
-    async function checkSettings() {
-      try {
-        const shopMetafields = shop?.metafields || [];
-        const zenloopSettings = shopMetafields.find(
-          metafield => metafield.namespace === "zenloop" && metafield.key === "settings"
-        );
-
-        if (!zenloopSettings?.value) {
-          done();
-          return;
-        }
-
-        try {
-          const parsedSettings = JSON.parse(zenloopSettings.value);
-          const { orgId, surveyId } = parsedSettings;
-
-          if (!orgId || !surveyId) {
-            done();
-            return;
-          }
-
-          await storage.update({
-            orgId,
-            surveyId,
-            shop: shop?.domain
-          });
-
-          setSettings({ orgId, surveyId });
-          setShouldRender(true);
-        } catch (parseError) {
-          console.error("Failed to parse settings:", parseError);
-          done();
-        }
-      } catch (error) {
-        console.error("Error checking settings:", error);
-        setError("Unable to load survey. Please continue to order status.");
-        setShouldRender(true);
-      }
-    }
-
-    checkSettings();
-  }, [shop, storage, done]);
-
-  if (!shouldRender) {
-    return null;
-  }
-
-  if (error || !settings) {
-    return (
-      <View padding="base">
-        <Layout maxInlineSize={0.95}>
-          <BlockStack spacing="tight" alignment="center">
-            <TextContainer alignment="center">
-              <TextBlock appearance="critical">{error}</TextBlock>
-            </TextContainer>
-            <Button
-              kind="secondary"
-              onPress={() => done()}
-              inlineSize="fill"
-            >
-              Continue to Order Status
-            </Button>
-          </BlockStack>
-        </Layout>
-      </View>
-    );
-  }
-  
-  const baseUrl = "https://zenresponses.zenloop.com/";
-  const params = new URLSearchParams({
-    orgId: settings.orgId,
-    surveyId: settings.surveyId,
-    shop_domain: shop?.domain || "",
-    order_id: initialPurchase?.referenceId || "",
-    customer_id: initialPurchase?.customerId?.toString() || "",
-    product_title: initialPurchase?.lineItems?.[0]?.product?.title || "",
-    product_variant: initialPurchase?.lineItems?.[0]?.product?.variant?.title || "",
-    total_price: initialPurchase?.totalPriceSet?.shopMoney?.amount || "",
-    currency: initialPurchase?.totalPriceSet?.shopMoney?.currencyCode || "",
-  });
-  const surveyUrl = `${baseUrl}?${params.toString()}`;
+export function PostPurchaseSurvey({ storage, inputData, done }) {
+  const { orgId = "", surveyId = "" } = storage.initialData || {};
+  const surveyUrl = buildSurveyUrl(orgId, surveyId, inputData);
 
   return (
     <View padding="none">
@@ -160,8 +65,8 @@ function PostPurchaseSurvey() {
           <BlockStack spacing="loose">
             {/* Header Section */}
             <BlockStack alignment="center">
-            <Separator />
-              <Image 
+              <Separator />
+              <Image
                 source="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iMzgiIGZpbGw9IiNGNUY1RjUiIHN0cm9rZT0iIzAwODQ2MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxwYXRoIGQ9Ik0yNCA0MkwzNCA1Mkw1NiAzMCIgc3Ryb2tlPSIjMDA4NDYwIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K"
                 fit="contain"
                 size="medium"
@@ -178,38 +83,46 @@ function PostPurchaseSurvey() {
             <Separator />
 
             {/* Survey Section */}
-            <View
-              border="base"
-              padding="loose"
-              cornerRadius="base"
-              background="subdued"
-            >
-              <BlockStack spacing="loose" alignment="center">
-                <TextContainer alignment="center">
-                  <Heading level={2}>Your Opinion Matters</Heading>
-                  <TextBlock size="medium">
-                    How was your shopping experience with us?
-                  </TextBlock>
-                </TextContainer>
-
-                <BlockStack spacing="tight" alignment="center">
-                  <Link to={surveyUrl} external>
-                    <Button
-                      kind="primary"
-                      inlineSize="fill"
-                    >
-                      Share Your Feedback
-                    </Button>
-                  </Link>
-
+            {surveyUrl ? (
+              <View
+                border="base"
+                padding="loose"
+                cornerRadius="base"
+                background="subdued"
+              >
+                <BlockStack spacing="loose" alignment="center">
                   <TextContainer alignment="center">
-                    <TextBlock size="small" emphasized appearance="subdued">
-                      Takes less than 2 minutes • Your feedback is anonymous
+                    <Heading level={2}>Your Opinion Matters</Heading>
+                    <TextBlock size="medium">
+                      How was your shopping experience with us?
                     </TextBlock>
                   </TextContainer>
+
+                  <BlockStack spacing="tight" alignment="center">
+                    <Link to={surveyUrl} external>
+                      <Button
+                        kind="primary"
+                        inlineSize="fill"
+                      >
+                        Share Your Feedback
+                      </Button>
+                    </Link>
+
+                    <TextContainer alignment="center">
+                      <TextBlock size="small" emphasized appearance="subdued">
+                        Takes less than 2 minutes • Your feedback is anonymous
+                      </TextBlock>
+                    </TextContainer>
+                  </BlockStack>
                 </BlockStack>
-              </BlockStack>
-            </View>
+              </View>
+            ) : (
+              <TextContainer alignment="center">
+                <TextBlock appearance="critical">
+                  Unable to load survey at the moment. Please try again later.
+                </TextBlock>
+              </TextContainer>
+            )}
 
             <Separator />
 
@@ -235,5 +148,34 @@ function PostPurchaseSurvey() {
   );
 }
 
-// Render the post-purchase extension
-render("Checkout::PostPurchase::Render", () => <PostPurchaseSurvey />);
+function buildSurveyUrl(orgId, surveyId, inputData) {
+  if (!orgId || !surveyId) return null;
+
+  const shop = inputData?.shop || {};
+  const initialPurchase = inputData?.initialPurchase || {};
+  const firstItem = initialPurchase?.lineItems?.[0] || {};
+
+  const params = new URLSearchParams({
+    orgId,
+    surveyId,
+    shop_domain: shop.domain || "",
+    order_id: initialPurchase.referenceId || "",
+    customer_id: initialPurchase.customerId?.toString() || "",
+    product_title: firstItem.product?.title || "",
+    product_variant: firstItem.product?.variant?.title || "",
+    total_price: initialPurchase.totalPriceSet?.shopMoney?.amount || "",
+    currency: initialPurchase.totalPriceSet?.shopMoney?.currencyCode || "",
+  });
+
+  return `${SURVEY_BASE_URL}?${params.toString()}`;
+}
+
+async function fetchZenloopSettings(token) {
+  return fetch(`${APP_URL}/api/zenloop-settings`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+}
