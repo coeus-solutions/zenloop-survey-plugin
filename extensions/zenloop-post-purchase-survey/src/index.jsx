@@ -21,27 +21,29 @@ import {
 
 const SURVEY_BASE_URL = "https://zenresponses.zenloop.com/";
 
-// Must be production URL when deploying the app
-const APP_URL = "https://zenloop-survey-plugin-xn48.onrender.com";
-
 extend("Checkout::PostPurchase::ShouldRender", shouldRender);
 render("Checkout::PostPurchase::Render", PostPurchaseSurvey);
 
 async function shouldRender({ storage, inputData }) {
   try {
-    const response = await fetchZenloopSettings(inputData?.token || "");
+    console.log("Input data received in shouldRender:", inputData.shop.metafields);
+    const metafields = inputData?.shop?.metafields || [];
+    const zenloopSettingsJson = metafields.find(
+      (field) => field.namespace === "zenloop" && field.key === "settings"
+    )?.value;
 
-    if (!response.ok) {
-      console.error(`Zenloop API error: ${response.status} ${response.statusText}`);
+    if (!zenloopSettingsJson) {
+      console.error("Zenloop settings metafield not found");
       return { render: false };
     }
 
-    const { data } = await response.json();
-    const orgId = data?.orgId;
-    const surveyId = data?.surveyId;
+    const zenloopSettings = JSON.parse(zenloopSettingsJson);
+
+    const orgId = zenloopSettings?.orgId;
+    const surveyId = zenloopSettings?.surveyId;
 
     if (!orgId || !surveyId) {
-      console.error("Invalid Zenloop settings:", data);
+      console.error("Invalid Zenloop settings:", zenloopSettings);
       return { render: false };
     }
 
@@ -168,14 +170,4 @@ function buildSurveyUrl(orgId, surveyId, inputData) {
   });
 
   return `${SURVEY_BASE_URL}?${params.toString()}`;
-}
-
-async function fetchZenloopSettings(token) {
-  return fetch(`${APP_URL}/api/zenloop-settings`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
 }

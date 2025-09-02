@@ -1,11 +1,14 @@
 api_version = "2025-07"
+
+[[extensions]]
 type = "checkout_post_purchase"
 name = "zenloop-post-purchase-survey"
+handle = "zenloop-post-purchase-survey"
 
-[capabilities]
+[[extensions.targeting]]
 network_access = true
 block_progress = true
 
-[[metafields]]
+[[extensions.metafields]]
 namespace = "zenloop"
 key = "settings"
