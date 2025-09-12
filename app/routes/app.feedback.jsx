@@ -89,6 +89,7 @@ function FeedbackDisplay({ settings }) {
   };
 
   useEffect(() => {
+    const zenloopSurveyUrl = "https://zensurveys-production.onrender.com"
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -96,7 +97,7 @@ function FeedbackDisplay({ settings }) {
 
         // Fetch aggregate data
         const aggregateResponse = await fetch(
-          `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/responses/aggregate`,
+          `${zenloopSurveyUrl}/api/v2/surveys/${settings.surveyId}/responses/aggregate`,
           {
             headers: {
               'accept': 'application/json'
@@ -125,7 +126,7 @@ function FeedbackDisplay({ settings }) {
             
             while (hasMorePages) {
               const responsesResponse = await fetch(
-                `https://surveys-backend-1mxy.onrender.com/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${question.name}&page=${page}&page_size=100`,
+                `${zenloopSurveyUrl}/api/v2/surveys/${settings.surveyId}/public-responses?question_ids=${question.name}&page=${page}&page_size=100`,
                 {
                   headers: {
                     'accept': 'application/json'
