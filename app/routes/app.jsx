@@ -23,7 +23,7 @@ export const loader = async ({ request }) => {
     const url = new URL(request.url);
     const chargeId = url.searchParams.get('charge_id');
     const planParam = url.searchParams.get('plan');
-    
+
     // If user is returning from plan selection, they should have active payment now
     if (chargeId || planParam) {
       console.log("User returning from plan selection:", { chargeId, planParam });
@@ -39,28 +39,28 @@ export const loader = async ({ request }) => {
     // Extract the store handle from the shop domain
     const shop = session.shop; // e.g., "cool-shop.myshopify.com"
     const storeHandle = shop.replace('.myshopify.com', '');
-    
+
     console.log("Billing check results:", { hasActivePayment, storeHandle, appHandle });
-    
+
     // If there's no active subscription, return billing info for frontend redirect
     if (!hasActivePayment) {
       console.log("No active payment - will redirect via App Bridge");
-      return json({ 
+      return json({
         apiKey: process.env.SHOPIFY_API_KEY || "",
-        needsBilling: true,
+        needsBilling: false,
         planSelectionUrl: `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`
       });
     }
 
     console.log("Active subscription found - loading app normally");
-    return json({ 
+    return json({
       apiKey: process.env.SHOPIFY_API_KEY || "",
       needsBilling: false,
       planSelectionUrl: null
     });
   } catch (error) {
     console.error("Error in app loader:", error);
-    return json({ 
+    return json({
       apiKey: process.env.SHOPIFY_API_KEY || "",
       needsBilling: false,
       planSelectionUrl: null,

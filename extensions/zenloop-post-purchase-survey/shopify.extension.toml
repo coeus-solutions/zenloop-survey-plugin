@@ -1,6 +1,7 @@
 api_version = "2025-07"
 
 [[extensions]]
+uid = "ecb24781-931e-98e1-bd0c-bae71981ea3e77766315"
 type = "checkout_post_purchase"
 name = "zenloop-post-purchase-survey"
 handle = "zenloop-post-purchase-survey"
