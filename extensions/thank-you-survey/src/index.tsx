@@ -32,12 +32,7 @@ function Extension() {
   if (!settings) return null;
   if (loading) return <Spinner />;
 
-  if (error) {
-    console.error("Error fetching survey config:", error);
-    return null;
-  }
-
-  if (!surveyConfig) {
+  if (settings.displayType !== "form" || error || !surveyConfig) {
     const surveyUrl = buildSurveyUrl(settings, shop.myshopifyDomain, order.id);
     return <SingleLink surveyUrl={surveyUrl} />;
   }

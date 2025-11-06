@@ -1,142 +1,126 @@
-import { json } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useNavigation, useSubmit } from "@remix-run/react";
-import { authenticate } from "../../shopify.server";
+import { useState } from "react";
+import { useActionData, useLoaderData, useSubmit } from "@remix-run/react";
 import {
-  Box,
-  Card,
-  Layout,
   Page,
-  Text,
+  Layout,
+  Card,
+  FormLayout,
   TextField,
-  BlockStack,
-  PageActions,
+  Select,
   Banner,
 } from "@shopify/polaris";
-import { useState, useEffect } from "react";
+import { authenticate } from "../../shopify.server";
 
+// Loader - Fetch existing metafield settings
 export const loader = async ({ request }) => {
-  try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const { admin } = await authenticate.admin(request);
+  const { admin } = await authenticate.admin(request);
 
-    const url = new URL(request.url);
-    const shop = url.searchParams.get('shop');
-    const embedded = url.searchParams.get('embedded');
-    const host = url.searchParams.get('host');
-
-    if (!shop || !embedded || !host) {
-      return json({ 
-        settings: {},
-        initialized: false
-      });
-    }
-
-    const retryGraphQL = async (query, maxRetries = 3) => {
-      for (let i = 0; i < maxRetries; i++) {
-        try {
-          const response = await admin.graphql(query);
-          return await response.json();
-        } catch (error) {
-          if (i === maxRetries - 1) throw error;
-          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-        }
-      }
-    };
-
-    try {
-      const shopData = await retryGraphQL(`
-        {
-          shop {
+  // Query to get the shop's metafield
+  const response = await admin.graphql(
+    `#graphql
+      query getShopMetafield($namespace: String!, $key: String!) {
+        shop {
+          id
+          metafield(namespace: $namespace, key: $key) {
             id
+            value
           }
         }
-      `);
-
-      if (!shopData?.data?.shop?.id) {
-        return json({ 
-          settings: {},
-          initialized: false
-        });
-      }
-
-      const data = await retryGraphQL(`
-        {
-          shop {
-            metafield(namespace: "zenloop", key: "settings") {
-              value
-            }
-          }
-        }
-      `);
-
-      let settings = {};
-      const metafieldValue = data?.data?.shop?.metafield?.value;
-
-      if (metafieldValue) {
-        try {
-          settings = JSON.parse(metafieldValue);
-        } catch (error) {
-          return json({ 
-            settings: {},
-            initialized: false,
-            error: "Invalid settings format. Please try saving your settings again."
-          });
-        }
-      }
-
-      return json({ 
-        settings,
-        initialized: !!metafieldValue
-      });
-
-    } catch (graphqlError) {
-      return json({ 
-        settings: {},
-        initialized: false
-      });
+      }`,
+    {
+      variables: {
+        namespace: "zenloop",
+        key: "settings",
+      },
     }
-  } catch (error) {
-    return json({ 
-      error: "Authentication failed. Please refresh the page." 
-    }, { status: 401 });
+  );
+
+  const data = await response.json();
+  const shop = data.data?.shop;
+  const metafield = shop?.metafield;
+
+  // Parse existing settings if metafield exists
+  let existingSettings = null;
+  if (metafield?.value) {
+    try {
+      existingSettings = JSON.parse(metafield.value);
+    } catch (e) {
+      console.error("Failed to parse metafield value:", e);
+    }
   }
+
+  return Response.json({
+    shopId: shop?.id,
+    settings: existingSettings,
+  });
 };
 
+// Action - Save form data to metafield
 export const action = async ({ request }) => {
+  const { admin } = await authenticate.admin(request);
+
+  const formData = await request.formData();
+
+  const orgId = formData.get("orgId");
+  const surveyId = formData.get("surveyId");
+  const displayType = formData.get("displayType");
+
+  // Validate required fields
+  if (!orgId || !surveyId || !displayType) {
+    return Response.json(
+      {
+        success: false,
+        error: "All fields are required",
+      },
+      { status: 400 }
+    );
+  }
+
+  // Prepare settings object
+  const settings = {
+    orgId: orgId,
+    surveyId: surveyId,
+    displayType,
+  };
+
+  // Validate numbers
+  if (isNaN(Number(settings.orgId)) || isNaN(Number(settings.surveyId))) {
+    return Response.json(
+      {
+        success: false,
+        error: "Organization ID and Survey ID must be valid numbers",
+      },
+      { status: 400 }
+    );
+  }
+
   try {
-    const { admin } = await authenticate.admin(request);
-    const formData = await request.formData();
-    const orgId = formData.get("orgId");
-    const surveyId = formData.get("surveyId");
-
-    if (!orgId || !surveyId) {
-      return json(
-        { error: "Organization ID and Survey ID are required" },
-        { status: 400 }
-      );
-    }
-
-    try {
-      const shopResponse = await admin.graphql(
-        `query {
+    // First, query the shop to get its ID
+    const shopResponse = await admin.graphql(
+      `#graphql
+        query getShopId {
           shop {
             id
           }
         }`
-      );
+    );
 
-      const shopData = await shopResponse.json();
-      const shopId = shopData?.data?.shop?.id;
-      
-      if (!shopId) {
-        return json({ error: "Could not get shop ID" }, { status: 500 });
-      }
-      
-      const response = await admin.graphql(
-        `mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+    const shopData = await shopResponse.json();
+    const shopId = shopData.data?.shop?.id;
+
+    if (!shopId) {
+      throw new Error("Could not retrieve shop ID");
+    }
+
+    // Create or update the metafield
+    const response = await admin.graphql(
+      `#graphql
+        mutation CreateMetafield($metafields: [MetafieldsSetInput!]!) {
           metafieldsSet(metafields: $metafields) {
             metafields {
               id
+              namespace
+              key
               value
             }
             userErrors {
@@ -145,172 +129,150 @@ export const action = async ({ request }) => {
             }
           }
         }`,
-        {
-          variables: {
-            metafields: [{
+      {
+        variables: {
+          metafields: [
+            {
               namespace: "zenloop",
               key: "settings",
-              value: JSON.stringify({ orgId, surveyId }),
               type: "json",
-              ownerId: shopId
-            }]
-          }
-        }
+              value: JSON.stringify(settings),
+              ownerId: shopId,
+            },
+          ],
+        },
+      }
+    );
+
+    const result = await response.json();
+    const userErrors = result.data?.metafieldsSet?.userErrors;
+
+    if (userErrors && userErrors.length > 0) {
+      return Response.json(
+        {
+          success: false,
+          error: userErrors.map((e) => e.message).join(", "),
+        },
+        { status: 400 }
       );
-
-      const data = await response.json();
-
-      if (data?.data?.metafieldsSet?.userErrors?.length > 0) {
-        const error = data.data.metafieldsSet.userErrors[0];
-        return json({ error: error.message }, { status: 400 });
-      }
-
-      if (!data?.data?.metafieldsSet?.metafields?.length) {
-        return json({ error: "Failed to save settings" }, { status: 500 });
-      }
-
-      return json({
-        success: true,
-        settings: { orgId, surveyId }
-      });
-
-    } catch (graphqlError) {
-      return json({ 
-        error: "Failed to save settings. Please try again." 
-      }, { status: 500 });
     }
+
+    return Response.json({
+      success: true,
+      message: "Settings saved successfully!",
+    });
   } catch (error) {
-    return json({ 
-      error: "Authentication failed. Please refresh the page." 
-    }, { status: 401 });
+    console.error("Error saving metafield:", error);
+    return Response.json(
+      {
+        success: false,
+        error: "Failed to save settings. Please try again.",
+      },
+      { status: 500 }
+    );
   }
 };
 
+// Component
 export default function Index() {
-  const loaderData = useLoaderData();
+  const { settings } = useLoaderData();
   const actionData = useActionData();
-  const navigation = useNavigation();
   const submit = useSubmit();
-  const [orgId, setOrgId] = useState("");
-  const [surveyId, setSurveyId] = useState("");
-  const [orgIdError, setOrgIdError] = useState("");
-  const [surveyIdError, setSurveyIdError] = useState("");
 
-  useEffect(() => {
-    if (loaderData?.settings) {
-      setOrgId(loaderData.settings.orgId || "");
-      setSurveyId(loaderData.settings.surveyId || "");
-    }
-  }, [loaderData]);
-
-  // Update form when action is successful
-  useEffect(() => {
-    if (actionData?.success && actionData?.settings) {
-      setOrgId(actionData.settings.orgId);
-      setSurveyId(actionData.settings.surveyId);
-    }
-  }, [actionData]);
-
-  const isLoading = navigation.state === "submitting";
-
-  const handleOrgIdChange = (value) => {
-    if (value === "" || /^\d*$/.test(value)) {
-      setOrgId(value);
-      setOrgIdError("");
-    } else {
-      setOrgIdError("Please enter numbers only");
-    }
+  // Form state - initialize with existing settings or defaults
+  const defaultValues = {
+    orgId: settings?.orgId || "",
+    surveyId: settings?.surveyId || "",
+    displayType: settings?.displayType || "link",
   };
 
-  const handleSurveyIdChange = (value) => {
-    if (value === "" || /^\d*$/.test(value)) {
-      setSurveyId(value);
-      setSurveyIdError("");
-    } else {
-      setSurveyIdError("Please enter numbers only");
-    }
+  const [formState, setFormState] = useState(defaultValues);
+
+  const handleSubmit = () => {
+    const formData = new FormData();
+    formData.append("orgId", formState.orgId);
+    formData.append("surveyId", formState.surveyId);
+    formData.append("displayType", formState.displayType);
+
+    submit(formData, { method: "post" });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!orgIdError && !surveyIdError) {
-      const formData = new FormData(e.currentTarget);
-      formData.set("orgId", orgId);
-      formData.set("surveyId", surveyId);
-      submit(formData, { method: "post" });
-    }
-  };
+  const displayTypeOptions = [
+    { label: "Link to Survey", value: "link" },
+    { label: "Embedded Form", value: "form" },
+  ];
 
   return (
-    <Page>
+    <Page
+      title="Zenloop Survey Settings"
+      primaryAction={{
+        content: "Save",
+        onAction: handleSubmit,
+      }}
+    >
       <Layout>
+        {actionData?.success && (
+          <Layout.Section>
+            <Banner tone="success">
+              {actionData.message}
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {actionData?.error && (
+          <Layout.Section>
+            <Banner tone="critical">
+              {actionData.error}
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {!settings && !actionData && (
+          <Layout.Section>
+            <Banner title="Welcome" tone="info">
+              Please enter your Zenloop Organization ID and Survey ID to get started
+            </Banner>
+          </Layout.Section>
+        )}
+
         <Layout.Section>
           <Card>
-            <BlockStack gap="500">
-              <Text as="h2" variant="headingMd">
-                Zenloop Settings
-              </Text>
-              
-              {!loaderData?.initialized && !actionData?.success && (
-                <Banner title="Welcome" tone="info">
-                  Please enter your Zenloop Organization ID and Survey ID to get started
-                </Banner>
-              )}
-              
-              {(loaderData?.error || actionData?.error) && (
-                <Banner title="Error" tone="critical">
-                  {loaderData?.error || actionData?.error}
-                </Banner>
-              )}
-              
-              {actionData?.success && (
-                <Banner title="Success" tone="success">
-                  Settings saved successfully
-                </Banner>
-              )}
+            <FormLayout>
+              <TextField
+                label="Organization ID"
+                type="number"
+                value={formState.orgId}
+                onChange={(value) =>
+                  setFormState({ ...formState, orgId: value })
+                }
+                helpText="Enter your Zenloop organization ID"
+                autoComplete="off"
+              />
 
-              <Form method="post" onSubmit={handleSubmit}>
-                <BlockStack gap="400">
-                  <TextField
-                    label="Organization ID"
-                    name="orgId"
-                    type="text"
-                    autoComplete="off"
-                    value={orgId}
-                    onChange={handleOrgIdChange}
-                    error={orgIdError}
-                    helpText="Enter numbers only"
-                    required
-                  />
-                  
-                  <TextField
-                    label="Survey ID"
-                    name="surveyId"
-                    type="text"
-                    autoComplete="off"
-                    value={surveyId}
-                    onChange={handleSurveyIdChange}
-                    error={surveyIdError}
-                    helpText="Enter numbers only"
-                    required
-                  />
-                </BlockStack>
+              <TextField
+                label="Survey ID"
+                type="number"
+                value={formState.surveyId}
+                onChange={(value) =>
+                  setFormState({ ...formState, surveyId: value })
+                }
+                helpText="Enter your Zenloop survey ID"
+                autoComplete="off"
+              />
 
-                <Box paddingBlockStart="400">
-                  <PageActions
-                    primaryAction={{
-                      content: "Save",
-                      loading: isLoading,
-                      submit: true,
-                      disabled: !!orgIdError || !!surveyIdError,
-                    }}
-                  />
-                </Box>
-              </Form>
-            </BlockStack>
+              <Select
+                label="Display Type"
+                options={displayTypeOptions}
+                value={formState.displayType}
+                onChange={(value) =>
+                  setFormState({ ...formState, displayType: value })
+                }
+                helpText="Choose how to display the survey"
+              />
+            </FormLayout>
           </Card>
         </Layout.Section>
       </Layout>
     </Page>
   );
-} 
+}
