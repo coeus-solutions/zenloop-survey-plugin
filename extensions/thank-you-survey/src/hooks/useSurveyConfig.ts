@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { SURVEY_BASE_URL } from "../constants";
+import { SURVEY_API_URL } from "../constants";
 
 type UseSurveyConfigResult = {
   data: SurveyConfig | null;
@@ -19,6 +19,7 @@ type SurveyConfig = {
 
 export function useSurveyConfig(
   surveyId: string | null,
+  locale = "default",
 ): UseSurveyConfigResult {
   const [data, setData] = useState<SurveyConfig | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -33,33 +34,36 @@ export function useSurveyConfig(
       setLoading(true);
       setError(null);
       try {
-        const endpoint = `${SURVEY_BASE_URL}/api/v2/surveys/public/${surveyId}`;
+        const endpoint = `${SURVEY_API_URL}/api/v2/surveys/public/${surveyId}`;
         const res = await fetch(endpoint, { signal });
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const json = await res.json();
 
         const pages = json?.surveyJson?.pages ?? [];
-        const npsSurvey = pages
+        const ratingSurvey = pages
           .flatMap((p: any) => p.elements ?? [])
-          .find((el: any) => el.type === "rating" && el.ratingType === "NPS");
+          .find((el: any) => el.type === "rating");
 
-        if (!npsSurvey) {
+        if (!ratingSurvey) {
           throw new Error("No rating question found in survey JSON.");
         }
 
+        const title = getSurveyTitle(json.surveyJson?.title, locale);
+
         const config: SurveyConfig = {
-          title: json.surveyJson?.title ?? npsSurvey.title ?? "",
-          rateMin: npsSurvey.rateMin ?? 0,
-          rateMax: npsSurvey.rateMax ?? 0,
-          rateCount: npsSurvey.rateCount ?? 0,
-          rateType: npsSurvey.rateType ?? "",
-          minRateDescription: npsSurvey.minRateDescription ?? "",
-          maxRateDescription: npsSurvey.maxRateDescription ?? "",
+          title: title ?? title ?? "",
+          rateMin: ratingSurvey.rateMin ?? 0,
+          rateMax: ratingSurvey.rateMax ?? 0,
+          rateCount: ratingSurvey.rateCount ?? 0,
+          rateType: ratingSurvey.rateType ?? "",
+          minRateDescription: ratingSurvey.minRateDescription ?? "",
+          maxRateDescription: ratingSurvey.maxRateDescription ?? "",
         };
 
         setData(config);
       } catch (err) {
         if (err instanceof Error && err.name !== "AbortError") {
+          console.log({ err });
           setError(err);
         }
       } finally {
@@ -69,7 +73,16 @@ export function useSurveyConfig(
 
     fetchSurvey();
     return () => controller.abort();
-  }, [surveyId]);
+  }, [surveyId, locale]);
 
   return { data, error, loading };
+}
+
+function getSurveyTitle(title: string | object, locale: string): string {
+  if (typeof title === "string") return title;
+  const [language] = locale.split("-");
+
+  if (language in title) return title[language];
+
+  return title["default"];
 }

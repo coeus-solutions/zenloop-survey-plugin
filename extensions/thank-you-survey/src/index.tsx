@@ -1,6 +1,6 @@
 import type { OrderConfirmationApi } from "@shopify/ui-extensions/checkout";
 import { SingleLink } from "./components/SingleLink";
-import { buildSurveyUrl, getSettings, buildNPSSurveyUrl } from "./utils";
+import { buildSurveyUrl, getSettings } from "./utils";
 import { LabelForm, StarForm, SmileyForm } from "./components";
 import {
   reactExtension,
@@ -13,6 +13,7 @@ import {
   Grid,
   Text,
   Spinner,
+  useLanguage,
 } from "@shopify/ui-extensions-react/checkout";
 import { useSurveyConfig } from "./hooks/useSurveyConfig";
 
@@ -21,12 +22,13 @@ export default reactExtension("purchase.thank-you.block.render", () => (<Extensi
 
 function Extension() {
   const shop = useShop();
+  const language = useLanguage();
   const { orderConfirmation } = useApi() as OrderConfirmationApi;
   const order = orderConfirmation.current.order;
   const metafields = useAppMetafields({ namespace: "zenloop", key: "settings" })
   const settings = getSettings(metafields[0]?.metafield)
   const surveyId = settings?.surveyId ?? null;
-  const { data: surveyConfig, loading, error } = useSurveyConfig(surveyId);
+  const { data: surveyConfig, loading, error } = useSurveyConfig(surveyId, language?.isoCode);
 
 
   if (!settings) return null;
@@ -37,7 +39,7 @@ function Extension() {
     return <SingleLink surveyUrl={surveyUrl} />;
   }
 
-  const surveyUrl = buildNPSSurveyUrl(settings, shop.myshopifyDomain, order.id);
+  const surveyUrl = buildSurveyUrl(settings, shop.myshopifyDomain, order.id);
   let formComponent: JSX.Element;
 
   switch (surveyConfig.rateType) {

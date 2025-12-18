@@ -11,49 +11,14 @@ import {
   Banner,
 } from "@shopify/polaris";
 import { authenticate } from "../../shopify.server";
+import { validateSurveySettings } from "../../settingsValidation.server";
+import { getShopId, getMetafield, setMetafield } from "../../shopify/adminApi.server";
 
-// Loader - Fetch existing metafield settings
+
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
-
-  // Query to get the shop's metafield
-  const response = await admin.graphql(
-    `#graphql
-      query getShopMetafield($namespace: String!, $key: String!) {
-        shop {
-          id
-          metafield(namespace: $namespace, key: $key) {
-            id
-            value
-          }
-        }
-      }`,
-    {
-      variables: {
-        namespace: "zenloop",
-        key: "settings",
-      },
-    }
-  );
-
-  const data = await response.json();
-  const shop = data.data?.shop;
-  const metafield = shop?.metafield;
-
-  // Parse existing settings if metafield exists
-  let existingSettings = null;
-  if (metafield?.value) {
-    try {
-      existingSettings = JSON.parse(metafield.value);
-    } catch (e) {
-      console.error("Failed to parse metafield value:", e);
-    }
-  }
-
-  return json({
-    shopId: shop?.id,
-    settings: existingSettings,
-  });
+  const { shopId, value } = await getMetafield(admin, "zenloop", "settings");
+  return json({ shopId, settings: value });
 };
 
 // Action - Save form data to metafield
@@ -61,116 +26,24 @@ export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
 
   const formData = await request.formData();
+  const validation = await validateSurveySettings(formData);
 
-  const orgId = formData.get("orgId");
-  const surveyId = formData.get("surveyId");
-  const displayType = formData.get("displayType");
-
-  // Validate required fields
-  if (!orgId || !surveyId || !displayType) {
-    return json(
-      {
-        success: false,
-        error: "All fields are required",
-      },
-      { status: 400 }
-    );
+  if (validation.error) {
+    return json({ error: validation.error }, { status: 400 });
   }
 
-  // Prepare settings object
-  const settings = {
-    orgId: orgId,
-    surveyId: surveyId,
-    displayType,
-  };
-
-  // Validate numbers
-  if (isNaN(Number(settings.orgId)) || isNaN(Number(settings.surveyId))) {
-    return json(
-      {
-        success: false,
-        error: "Organization ID and Survey ID must be valid numbers",
-      },
-      { status: 400 }
-    );
-  }
+  const { settings } = validation;
 
   try {
-    // First, query the shop to get its ID
-    const shopResponse = await admin.graphql(
-      `#graphql
-        query getShopId {
-          shop {
-            id
-          }
-        }`
-    );
+    const shopId = await getShopId(admin);
+    await setMetafield(admin, "zenloop", "settings", settings, shopId);
 
-    const shopData = await shopResponse.json();
-    const shopId = shopData.data?.shop?.id;
-
-    if (!shopId) {
-      throw new Error("Could not retrieve shop ID");
-    }
-
-    // Create or update the metafield
-    const response = await admin.graphql(
-      `#graphql
-        mutation CreateMetafield($metafields: [MetafieldsSetInput!]!) {
-          metafieldsSet(metafields: $metafields) {
-            metafields {
-              id
-              namespace
-              key
-              value
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }`,
-      {
-        variables: {
-          metafields: [
-            {
-              namespace: "zenloop",
-              key: "settings",
-              type: "json",
-              value: JSON.stringify(settings),
-              ownerId: shopId,
-            },
-          ],
-        },
-      }
-    );
-
-    const result = await response.json();
-    const userErrors = result.data?.metafieldsSet?.userErrors;
-
-    if (userErrors && userErrors.length > 0) {
-      return json(
-        {
-          success: false,
-          error: userErrors.map((e) => e.message).join(", "),
-        },
-        { status: 400 }
-      );
-    }
-
-    return json({
-      success: true,
-      message: "Settings saved successfully!",
-    });
+    return json({ message: "Settings saved successfully!" });
   } catch (error) {
     console.error("Error saving metafield:", error);
-    return json(
-      {
-        success: false,
-        error: "Failed to save settings. Please try again.",
-      },
-      { status: 500 }
-    );
+    const errorMessage = error.message || "Failed to save settings. Please try again."
+
+    return json({ error: errorMessage }, { status: 500 });
   }
 };
 
@@ -212,7 +85,7 @@ export default function Index() {
       }}
     >
       <Layout>
-        {actionData?.success && (
+        {actionData?.message && (
           <Layout.Section>
             <Banner tone="success">
               {actionData.message}

@@ -24,23 +24,6 @@ export function buildSurveyUrl(
   return `${SURVEY_BASE_URL}?${params.toString()}`;
 }
 
-export function buildNPSSurveyUrl(
-  settings: Settings,
-  shop: string,
-  orderId: string,
-) {
-  const { orgId, surveyId } = settings;
-
-  const params = new URLSearchParams({
-    orgId,
-    surveyId,
-    shop_domain: shop,
-    order_id: orderId,
-  });
-
-  return `${SURVEY_BASE_URL}?${params.toString()}`;
-}
-
 export function getSettings(metafield?: AppMetafield): Settings | null {
   if (!metafield?.value) {
     return null;
