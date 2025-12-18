@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { json } from "@remix-run/node";
 import { useActionData, useLoaderData, useSubmit } from "@remix-run/react";
 import {
   Page,
@@ -49,7 +50,7 @@ export const loader = async ({ request }) => {
     }
   }
 
-  return Response.json({
+  return json({
     shopId: shop?.id,
     settings: existingSettings,
   });
@@ -67,7 +68,7 @@ export const action = async ({ request }) => {
 
   // Validate required fields
   if (!orgId || !surveyId || !displayType) {
-    return Response.json(
+    return json(
       {
         success: false,
         error: "All fields are required",
@@ -85,7 +86,7 @@ export const action = async ({ request }) => {
 
   // Validate numbers
   if (isNaN(Number(settings.orgId)) || isNaN(Number(settings.surveyId))) {
-    return Response.json(
+    return json(
       {
         success: false,
         error: "Organization ID and Survey ID must be valid numbers",
@@ -148,7 +149,7 @@ export const action = async ({ request }) => {
     const userErrors = result.data?.metafieldsSet?.userErrors;
 
     if (userErrors && userErrors.length > 0) {
-      return Response.json(
+      return json(
         {
           success: false,
           error: userErrors.map((e) => e.message).join(", "),
@@ -157,13 +158,13 @@ export const action = async ({ request }) => {
       );
     }
 
-    return Response.json({
+    return json({
       success: true,
       message: "Settings saved successfully!",
     });
   } catch (error) {
     console.error("Error saving metafield:", error);
-    return Response.json(
+    return json(
       {
         success: false,
         error: "Failed to save settings. Please try again.",
